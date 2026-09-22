@@ -20,7 +20,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION (MILITARY & DEFENSE TECH FEEDS) ---
 RSS_FEEDS = [
     "https://breakingdefense.com/feed/",
     "https://www.defenseone.com/rss/all/",
@@ -51,8 +51,8 @@ if today_uploads >= DAILY_LIMIT:
     print(f"Daily limit reached ({today_uploads}/{DAILY_LIMIT}). Exiting.")
     sys.exit(0)
 
-# --- 3. FETCH RSS FEEDS & GET LATEST TECH STORY ---
-print("Fetching Tech & AI RSS Feeds...")
+# --- 3. FETCH RSS FEEDS & GET LATEST DEFENSE/TECH STORY ---
+print("Fetching Tech & Defense RSS Feeds...")
 all_entries = []
 
 for feed_url in RSS_FEEDS:
@@ -98,13 +98,13 @@ for entry in all_entries:
         break
 
 if not selected_entry:
-    print("No fresh tech news found with image. Exiting.")
+    print("No fresh defense story found with image. Exiting.")
     sys.exit(0)
 
 raw_title = selected_entry.title
 summary = re.sub(r'<[^>]+>', '', selected_entry.get("summary", ""))[:400]
 target_id = selected_entry.get("id") or selected_entry.get("link")
-print(f"Selected Tech Story: {raw_title}")
+print(f"Selected Story: {raw_title}")
 
 # --- 4. GENERATE SCRIPT & TITLE VIA GEMINI ---
 script_text = None
@@ -113,7 +113,7 @@ viral_title = None
 try:
     client = genai.Client(api_key=GEMINI_API_KEY)
     
-prompt_script = f"""
+    prompt_script = f"""
 Write an intense, urgent, fast-paced 15-20 second YouTube Shorts military/defense tech script.
 Structure:
 - Line 1: Explosive hook about the strategic threat, weapon system, or tactical breakthrough.
@@ -141,10 +141,10 @@ except Exception as e:
     print(f"AI generation bypassed: {e}")
 
 if not script_text:
-    script_text = f"Tech breakthrough. {raw_title}. {summary}. Follow for instant daily updates!"
+    script_text = f"Defense breakthrough. {raw_title}. {summary}. Subscribe to Tech In 30 for daily defense breakthroughs!"
 
 if not viral_title or len(viral_title) > 65:
-    viral_title = f"{raw_title[:48]}..."
+    viral_title = f"{raw_title[:45]}... ⚡"
 
 print(f"Script: {script_text}")
 print(f"Title: {viral_title}")
@@ -205,7 +205,7 @@ def load_font(size):
     for f in ["DejaVuSans-Bold.ttf", "FreeSansBold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
         try:
             return ImageFont.truetype(f, size)
-        except:
+        except Exception:
             pass
     return ImageFont.load_default()
 
@@ -364,10 +364,6 @@ res = req.execute()
 print(f"Uploaded Successfully! Video ID: {res.get('id')}")
 
 # --- 12. LOG HISTORY ---
-with open(HISTORY_FILE, "a", encoding="utf-8") as f:
-    f.write(f"{target_id}|{today_str}\n")
-print(f"Saved {target_id} to {HISTORY_FILE}")
-# --- 12. UPDATE LOG ---
 with open(HISTORY_FILE, "a", encoding="utf-8") as f:
     f.write(f"{target_id}|{today_str}\n")
 print(f"Saved {target_id} to {HISTORY_FILE}")
