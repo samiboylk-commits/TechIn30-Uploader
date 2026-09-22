@@ -8,7 +8,7 @@ import feedparser
 import requests
 import edge_tts
 import numpy as np
-from PIL import Image, ImageFilter, ImageDraw, ImageFont
+from PIL import Image, ImageFilter, ImageDraw, ImageFont, ImageOps
 from google import genai
 from moviepy.editor import (
     AudioFileClip,
@@ -146,12 +146,9 @@ if not script_text:
 if not viral_title or len(viral_title) > 65:
     viral_title = f"{raw_title[:45]}... ⚡"
 
-print(f"Script: {script_text}")
-print(f"Title: {viral_title}")
-
-# --- 5. EDGE TTS (VOICE GENERATION) ---
+# --- 5. EDGE TTS ---
 async def generate_voice(text, output_file):
-    communicate = edge_tts.Communicate(text, voice="en-US-ChristopherNeural", rate="+12%")
+    communicate = edge_tts.Communicate(text, voice="en-US-ChristopherNeural", rate="+14%")
     await communicate.save(output_file)
 
 asyncio.run(generate_voice(script_text, "voice.mp3"))
@@ -159,39 +156,33 @@ voice_audio = AudioFileClip("voice.mp3")
 total_duration = voice_audio.duration + 0.6
 
 # --- 6. SMART SUBTITLE CHUNKS ---
-def generate_smart_chunks(text, max_words=3, max_chars=18):
+def generate_smart_chunks(text, max_words=2, max_chars=14):
     raw_words = text.split()
     chunks = []
     current_chunk = []
-    
     for w in raw_words:
         clean_w = re.sub(r'[^\w\s]', '', w).upper()
         if not clean_w:
             continue
-            
         test_chunk = current_chunk + [clean_w]
         has_break = any(char in w for char in ['.', '?', '!'])
-        
         if len(test_chunk) > max_words or sum(len(x) for x in test_chunk) + len(test_chunk) - 1 > max_chars:
             if current_chunk:
                 chunks.append(" ".join(current_chunk))
             current_chunk = [clean_w]
         else:
             current_chunk.append(clean_w)
-            
         if has_break:
             chunks.append(" ".join(current_chunk))
             current_chunk = []
-            
     if current_chunk:
         chunks.append(" ".join(current_chunk))
-        
     return chunks
 
-chunks = generate_smart_chunks(script_text, max_words=3, max_chars=18)
+chunks = generate_smart_chunks(script_text, max_words=2, max_chars=14)
 chunk_duration = voice_audio.duration / max(len(chunks), 1)
 
-# --- 7. IMAGE PREPARATION & FONTS ---
+# --- 7. MODERN CINEMATIC IMAGE & BACKGROUND PREP ---
 headers = {'User-Agent': 'Mozilla/5.0'}
 r1 = requests.get(primary_image, headers=headers, timeout=15)
 with open("raw.jpg", "wb") as f:
@@ -199,16 +190,24 @@ with open("raw.jpg", "wb") as f:
 
 raw_im = Image.open("raw.jpg").convert("RGB")
 
-# Dark Blurred 9:16 background
+# 1. Base Blurred Wallpaper Background
 bg_scale = max(1080 / raw_im.width, 1920 / raw_im.height)
 bg_sz = (int(raw_im.width * bg_scale), int(raw_im.height * bg_scale))
 bg_base = raw_im.resize(bg_sz, Image.Resampling.BILINEAR)
 l = (bg_base.width - 1080) // 2
 t = (bg_base.height - 1920) // 2
-bg_base = bg_base.crop((l, t, l + 1080, t + 1920)).filter(ImageFilter.GaussianBlur(radius=40))
+bg_base = bg_base.crop((l, t, l + 1080, t + 1920)).filter(ImageFilter.GaussianBlur(radius=50))
 
-overlay_dark = Image.new("RGB", (1080, 1920), (10, 15, 25))
-bg_base = Image.blend(bg_base, overlay_dark, 0.45)
+# 2. Add Dark Cyber Gradient Overlay (Dramatically Improves Aesthetic)
+gradient = Image.new("RGBA", (1080, 1920), (5, 10, 20, 210))
+bg_base = Image.alpha_composite(bg_base.convert("RGBA"), gradient).convert("RGB")
+
+# Draw tech background grid lines
+draw_bg = ImageDraw.Draw(bg_base)
+for y in range(0, 1920, 120):
+    draw_bg.line([(0, y), (1080, y)], fill=(20, 35, 55, 60), width=1)
+for x in range(0, 1080, 120):
+    draw_bg.line([(x, 0), (x, 1920)], fill=(20, 35, 55, 60), width=1)
 
 def load_font(size):
     for f in ["DejaVuSans-Bold.ttf", "FreeSansBold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
@@ -218,13 +217,11 @@ def load_font(size):
             pass
     return ImageFont.load_default()
 
-font_badge = load_font(32)
-font_title = load_font(42)
-font_caption_lg = load_font(48)
-font_caption_md = load_font(42)
-font_caption_sm = load_font(38)
+font_badge = load_font(30)
+font_title = load_font(46)
+font_caption = load_font(56)
 
-def wrap_title(text, max_chars=32):
+def wrap_title(text, max_chars=28):
     lines, cur = [], []
     for w in text.split():
         if sum(len(x) for x in cur) + len(cur) + len(w) <= max_chars:
@@ -236,79 +233,80 @@ def wrap_title(text, max_chars=32):
         lines.append(" ".join(cur))
     return lines
 
-title_lines = wrap_title(raw_title, max_chars=32)[:3]
+title_lines = wrap_title(raw_title, max_chars=28)[:3]
 
-# --- 8. FRAME RENDERING ---
-fg_w = 1000
+# --- 8. FRAME RENDERING (SLEEK MODERN CARD + GLOW) ---
+fg_w = 980
 fg_h = int(fg_w * (raw_im.height / raw_im.width))
+fg_h = min(fg_h, 850) # clamp height
 
 def make_tech_frame(t):
     frame = bg_base.copy()
     draw = ImageDraw.Draw(frame)
-
     progress = t / total_duration
-    zoom = 1.0 + 0.08 * progress
-    sway = int(np.sin(progress * np.pi) * 15)
 
+    # Ken Burns Zoom
+    zoom = 1.0 + 0.07 * progress
     scaled_w = int(fg_w * zoom)
-    scaled_h = int(fg_h * zoom)
+    scaled_h = int((fg_w * (raw_im.height / raw_im.width)) * zoom)
     scaled_img = raw_im.resize((scaled_w, scaled_h), Image.Resampling.BILINEAR)
 
-    crop_x = max(0, min(scaled_w - fg_w, (scaled_w - fg_w) // 2 + sway))
-    crop_y = max(0, min(scaled_h - fg_h, (scaled_h - fg_h) // 2))
-    fg_cropped = scaled_img.crop((crop_x, crop_y, crop_x + fg_w, crop_y + min(fg_h, scaled_h - crop_y)))
+    crop_x = (scaled_w - fg_w) // 2
+    crop_y = (scaled_h - fg_h) // 2
+    fg_cropped = scaled_img.crop((crop_x, crop_y, crop_x + fg_w, crop_y + fg_h))
 
+    # Mask with rounded corners
+    mask = Image.new("L", (fg_w, fg_h), 0)
+    draw_mask = ImageDraw.Draw(mask)
+    draw_mask.rounded_rectangle([0, 0, fg_w, fg_h], radius=28, fill=255)
+    
     pos_x = (1080 - fg_w) // 2
-    pos_y = 560
-    frame.paste(fg_cropped, (pos_x, pos_y))
-    draw.rectangle([pos_x - 3, pos_y - 3, pos_x + fg_w + 3, pos_y + fg_cropped.height + 3], outline=(0, 240, 255), width=3)
+    pos_y = 500
 
-    # Tech Badge
-    badge_bg = (0, 240, 255)
-    badge_fg = (0, 0, 0)
-    draw.rounded_rectangle([pos_x, 210, pos_x + 360, 275], radius=10, fill=badge_bg)
-    draw.text((pos_x + 20, 224), "⚡ TECH IN 30", font=font_badge, fill=badge_fg)
+    # Card Drop Shadow & Neon Cyan Outer Glow
+    draw.rounded_rectangle([pos_x - 6, pos_y - 6, pos_x + fg_w + 6, pos_y + fg_h + 6], radius=32, outline=(0, 240, 255), width=3)
+    frame.paste(fg_cropped, (pos_x, pos_y), mask)
 
-    # Headline Overlay
-    line_y = 295
+    # 1. Sleek Modern Pill Badge
+    badge_text = "TECH IN 30"
+    badge_w = 260
+    badge_h = 56
+    draw.rounded_rectangle([pos_x, 190, pos_x + badge_w, 190 + badge_h], radius=28, fill=(0, 240, 255))
+    draw.text((pos_x + (badge_w // 2), 190 + (badge_h // 2)), badge_text, font=font_badge, fill=(0, 10, 25), anchor="mm")
+
+    # 2. Punchy Headline Overlay with Shadow
+    line_y = 280
     for line in title_lines:
         draw.text((pos_x + 3, line_y + 3), line, font=font_title, fill=(0, 0, 0))
         draw.text((pos_x, line_y), line, font=font_title, fill=(255, 255, 255))
-        line_y += 52
+        line_y += 58
 
-    # Captions
+    # 3. Punchy Viral Subtitles (Higher Position & Vivid Colors)
     chunk_idx = min(int(t / chunk_duration), len(chunks) - 1)
     current_caption = chunks[chunk_idx]
 
-    if len(current_caption) > 16:
-        chosen_font = font_caption_sm
-    elif len(current_caption) > 12:
-        chosen_font = font_caption_md
-    else:
-        chosen_font = font_caption_lg
-
     try:
-        bbox = draw.textbbox((0, 0), current_caption, font=chosen_font)
+        bbox = draw.textbbox((0, 0), current_caption, font=font_caption)
         text_w = bbox[2] - bbox[0]
         text_h = bbox[3] - bbox[1]
     except Exception:
-        text_w = len(current_caption) * 24
-        text_h = 45
+        text_w = len(current_caption) * 30
+        text_h = 60
 
-    box_w = min(1000, max(text_w + 60, 240))
-    box_h = max(text_h + 36, 80)
+    cap_w = max(text_w + 80, 280)
+    cap_h = max(text_h + 40, 96)
+    cap_x1 = 540 - (cap_w // 2)
+    cap_x2 = 540 + (cap_w // 2)
+    cap_box_y = pos_y + fg_h + 70  # Higher up, safely above Shorts player controls
 
-    cap_x1 = 540 - (box_w // 2)
-    cap_x2 = 540 + (box_w // 2)
-    cap_box_y = min(1680, pos_y + fg_cropped.height + 80)
+    # Subtitle Pill
+    draw.rounded_rectangle([cap_x1, cap_box_y, cap_x2, cap_box_y + cap_h], radius=24, fill=(10, 15, 25), outline=(0, 255, 200), width=4)
+    draw.text((540, cap_box_y + (cap_h // 2)), current_caption, font=font_caption, fill=(255, 235, 50), anchor="mm")
 
-    draw.rounded_rectangle([cap_x1, cap_box_y, cap_x2, cap_box_y + box_h], radius=14, fill=(10, 15, 25), outline=(0, 240, 255), width=3)
-    draw.text((540, cap_box_y + (box_h // 2)), current_caption, font=chosen_font, fill=(255, 255, 255), anchor="mm")
-
-    # Bottom Progress Bar
+    # 4. Neon Progress Bar
     bar_width = int(1080 * progress)
-    draw.rectangle([0, 1912, 1080, 1920], fill=(20, 25, 35))
-    draw.rectangle([0, 1912, bar_width, 1920], fill=(0, 240, 255))
+    draw.rectangle([0, 1910, 1080, 1920], fill=(15, 20, 30))
+    draw.rectangle([0, 1910, bar_width, 1920], fill=(0, 240, 255))
 
     return np.array(frame)
 
@@ -326,13 +324,13 @@ final_audio = CompositeAudioClip([voice_audio, sfx_audio]).set_duration(total_du
 animated_video = animated_video.set_audio(final_audio)
 
 # --- 10. RENDERING ---
-print("Rendering Tech Short...")
+print("Rendering Modern Short...")
 animated_video.write_videofile(
     "final_shorts.mp4",
     fps=30,
     codec="libx264",
     audio_codec="aac",
-    bitrate="5000k",
+    bitrate="5500k",
     preset="ultrafast",
     threads=4,
     logger=None
