@@ -8,7 +8,7 @@ import feedparser
 import requests
 import edge_tts
 import numpy as np
-from PIL import Image, ImageFilter, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageFilter, ImageDraw, ImageFont, ImageEnhance
 from google import genai
 from moviepy.editor import (
     AudioFileClip,
@@ -114,22 +114,21 @@ try:
     client = genai.Client(api_key=GEMINI_API_KEY)
     
     prompt_script = f"""
-Write a high-energy, fast-paced 20-25 second YouTube Shorts script on this tech breakthrough.
+Write an intense, fast-paced 20-25 second YouTube Shorts script on this tech breakthrough.
 Structure strictly:
-- Bold hook in the first sentence.
-- Key technical spec or update in 2 concise sentences.
-- End with: "Subscribe to Tech In 30 for daily breakdowns!"
+- Bold hook in sentence 1 that makes the viewer stop scrolling.
+- Direct facts/specs in 2 concise sentences.
+- Outro: "Follow Tech In 30 for daily futuristic breakdowns!"
 Headline: {raw_title}
 Context: {summary}
-Output spoken words only. Word count strictly between 50 and 60 words. No labels, emojis, or sound notes.
+Output spoken words only. Word count strictly between 45 and 55 words. Do not include markdown, emojis, or sound notes.
 """
     res_script = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_script)
     if res_script.text:
         script_text = res_script.text.strip().replace("*", "").replace("\n", " ")
 
     prompt_title = f"""
-Convert this tech headline into an ultra-punchy YouTube Shorts title under 50 characters. 
-Use 1 tech emoji (⚡, 🤖, or 🚀).
+Convert this tech headline into an ultra-viral YouTube Shorts title under 48 characters. Include 1 tech emoji (⚡ or 🤖).
 Headline: {raw_title}
 Output only the title.
 """
@@ -141,48 +140,41 @@ except Exception as e:
     print(f"AI generation bypassed: {e}")
 
 if not script_text:
-    script_text = f"Tech breakthrough. {raw_title}. {summary}. Subscribe to Tech In 30 for daily breakdowns!"
+    script_text = f"Major tech alert. {raw_title}. {summary}. Follow Tech In 30 for daily breakdowns!"
 
 if not viral_title or len(viral_title) > 65:
     viral_title = f"{raw_title[:45]}... ⚡"
 
-# --- 5. EDGE TTS ---
+# --- 5. EDGE TTS (VOICE GENERATION) ---
 async def generate_voice(text, output_file):
-    communicate = edge_tts.Communicate(text, voice="en-US-ChristopherNeural", rate="+14%")
+    communicate = edge_tts.Communicate(text, voice="en-US-ChristopherNeural", rate="+15%")
     await communicate.save(output_file)
 
 asyncio.run(generate_voice(script_text, "voice.mp3"))
 voice_audio = AudioFileClip("voice.mp3")
 total_duration = voice_audio.duration + 0.6
 
-# --- 6. SMART SUBTITLE CHUNKS ---
-def generate_smart_chunks(text, max_words=2, max_chars=14):
+# --- 6. 1-2 WORD RAPID VIRAL CAPTIONS ---
+def generate_smart_chunks(text):
     raw_words = text.split()
     chunks = []
-    current_chunk = []
+    current = []
     for w in raw_words:
-        clean_w = re.sub(r'[^\w\s]', '', w).upper()
-        if not clean_w:
+        clean = re.sub(r'[^\w\s]', '', w).upper()
+        if not clean:
             continue
-        test_chunk = current_chunk + [clean_w]
-        has_break = any(char in w for char in ['.', '?', '!'])
-        if len(test_chunk) > max_words or sum(len(x) for x in test_chunk) + len(test_chunk) - 1 > max_chars:
-            if current_chunk:
-                chunks.append(" ".join(current_chunk))
-            current_chunk = [clean_w]
-        else:
-            current_chunk.append(clean_w)
-        if has_break:
-            chunks.append(" ".join(current_chunk))
-            current_chunk = []
-    if current_chunk:
-        chunks.append(" ".join(current_chunk))
+        current.append(clean)
+        if len(current) >= 2 or any(c in w for c in ['.', '!', '?']):
+            chunks.append(" ".join(current))
+            current = []
+    if current:
+        chunks.append(" ".join(current))
     return chunks
 
-chunks = generate_smart_chunks(script_text, max_words=2, max_chars=14)
+chunks = generate_smart_chunks(script_text)
 chunk_duration = voice_audio.duration / max(len(chunks), 1)
 
-# --- 7. MODERN CINEMATIC IMAGE & BACKGROUND PREP ---
+# --- 7. LOAD AND PROCESS ASSETS ---
 headers = {'User-Agent': 'Mozilla/5.0'}
 r1 = requests.get(primary_image, headers=headers, timeout=15)
 with open("raw.jpg", "wb") as f:
@@ -190,24 +182,28 @@ with open("raw.jpg", "wb") as f:
 
 raw_im = Image.open("raw.jpg").convert("RGB")
 
-# 1. Base Blurred Wallpaper Background
+# Boost color saturation for crisp futuristic look
+enhancer = ImageEnhance.Color(raw_im)
+raw_im = enhancer.enhance(1.2)
+
+# Full vertical 9:16 background
 bg_scale = max(1080 / raw_im.width, 1920 / raw_im.height)
 bg_sz = (int(raw_im.width * bg_scale), int(raw_im.height * bg_scale))
 bg_base = raw_im.resize(bg_sz, Image.Resampling.BILINEAR)
 l = (bg_base.width - 1080) // 2
 t = (bg_base.height - 1920) // 2
-bg_base = bg_base.crop((l, t, l + 1080, t + 1920)).filter(ImageFilter.GaussianBlur(radius=50))
+bg_base = bg_base.crop((l, t, l + 1080, t + 1920)).filter(ImageFilter.GaussianBlur(radius=55))
 
-# 2. Add Dark Cyber Gradient Overlay (Dramatically Improves Aesthetic)
-gradient = Image.new("RGBA", (1080, 1920), (5, 10, 20, 210))
-bg_base = Image.alpha_composite(bg_base.convert("RGBA"), gradient).convert("RGB")
+# Dark Tech Gradient Overlay
+overlay_tint = Image.new("RGBA", (1080, 1920), (5, 9, 18, 205))
+bg_base = Image.alpha_composite(bg_base.convert("RGBA"), overlay_tint).convert("RGB")
 
-# Draw tech background grid lines
+# Cyberpunk Subtle Grid
 draw_bg = ImageDraw.Draw(bg_base)
-for y in range(0, 1920, 120):
-    draw_bg.line([(0, y), (1080, y)], fill=(20, 35, 55, 60), width=1)
-for x in range(0, 1080, 120):
-    draw_bg.line([(x, 0), (x, 1920)], fill=(20, 35, 55, 60), width=1)
+for gy in range(0, 1920, 100):
+    draw_bg.line([(0, gy), (1080, gy)], fill=(15, 30, 50), width=1)
+for gx in range(0, 1080, 100):
+    draw_bg.line([(gx, 0), (gx, 1920)], fill=(15, 30, 50), width=1)
 
 def load_font(size):
     for f in ["DejaVuSans-Bold.ttf", "FreeSansBold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"]:
@@ -217,9 +213,9 @@ def load_font(size):
             pass
     return ImageFont.load_default()
 
-font_badge = load_font(30)
-font_title = load_font(46)
-font_caption = load_font(56)
+font_hud = load_font(24)
+font_title = load_font(42)
+font_caption = load_font(68)
 
 def wrap_title(text, max_chars=28):
     lines, cur = [], []
@@ -235,88 +231,97 @@ def wrap_title(text, max_chars=28):
 
 title_lines = wrap_title(raw_title, max_chars=28)[:3]
 
-# --- 8. FRAME RENDERING (SLEEK MODERN CARD + GLOW) ---
-fg_w = 980
-fg_h = int(fg_w * (raw_im.height / raw_im.width))
-fg_h = min(fg_h, 850) # clamp height
+# --- 8. ULTRA HIGH-TECH HUD FRAME RENDERING ---
+card_w = 1000
+card_h = 800
+pos_x = (1080 - card_w) // 2
+pos_y = 520
 
 def make_tech_frame(t):
     frame = bg_base.copy()
     draw = ImageDraw.Draw(frame)
     progress = t / total_duration
 
-    # Ken Burns Zoom
-    zoom = 1.0 + 0.07 * progress
-    scaled_w = int(fg_w * zoom)
-    scaled_h = int((fg_w * (raw_im.height / raw_im.width)) * zoom)
-    scaled_img = raw_im.resize((scaled_w, scaled_h), Image.Resampling.BILINEAR)
-
-    crop_x = (scaled_w - fg_w) // 2
-    crop_y = (scaled_h - fg_h) // 2
-    fg_cropped = scaled_img.crop((crop_x, crop_y, crop_x + fg_w, crop_y + fg_h))
-
-    # Mask with rounded corners
-    mask = Image.new("L", (fg_w, fg_h), 0)
-    draw_mask = ImageDraw.Draw(mask)
-    draw_mask.rounded_rectangle([0, 0, fg_w, fg_h], radius=28, fill=255)
+    # Ken Burns Zoom & Dynamic Drift
+    zoom = 1.0 + 0.08 * progress
+    sway = int(np.sin(progress * np.pi) * 18)
     
-    pos_x = (1080 - fg_w) // 2
-    pos_y = 500
+    scaled_w = int(card_w * zoom)
+    scaled_h = int((card_w * (raw_im.height / raw_im.width)) * zoom)
+    scaled_img = raw_im.resize((scaled_w, max(scaled_h, card_h)), Image.Resampling.BILINEAR)
 
-    # Card Drop Shadow & Neon Cyan Outer Glow
-    draw.rounded_rectangle([pos_x - 6, pos_y - 6, pos_x + fg_w + 6, pos_y + fg_h + 6], radius=32, outline=(0, 240, 255), width=3)
+    crop_x = max(0, min(scaled_w - card_w, (scaled_w - card_w) // 2 + sway))
+    crop_y = max(0, min(scaled_img.height - card_h, (scaled_img.height - card_h) // 2))
+    fg_cropped = scaled_img.crop((crop_x, crop_y, crop_x + card_w, crop_y + card_h))
+
+    # Mask for crisp rounded card
+    mask = Image.new("L", (card_w, card_h), 0)
+    draw_mask = ImageDraw.Draw(mask)
+    draw_mask.rounded_rectangle([0, 0, card_w, card_h], radius=24, fill=255)
     frame.paste(fg_cropped, (pos_x, pos_y), mask)
 
-    # 1. Sleek Modern Pill Badge
-    badge_text = "TECH IN 30"
-    badge_w = 260
-    badge_h = 56
-    draw.rounded_rectangle([pos_x, 190, pos_x + badge_w, 190 + badge_h], radius=28, fill=(0, 240, 255))
-    draw.text((pos_x + (badge_w // 2), 190 + (badge_h // 2)), badge_text, font=font_badge, fill=(0, 10, 25), anchor="mm")
+    # 1. Neon Glowing Outer Frame & Tech Brackets
+    draw.rounded_rectangle([pos_x, pos_y, pos_x + card_w, pos_y + card_h], radius=24, outline=(0, 240, 255), width=3)
+    
+    b_len = 45
+    neon = (0, 255, 220)
+    # 4 Corner High-Tech Brackets
+    draw.line([(pos_x - 6, pos_y - 6), (pos_x + b_len, pos_y - 6)], fill=neon, width=6)
+    draw.line([(pos_x - 6, pos_y - 6), (pos_x - 6, pos_y + b_len)], fill=neon, width=6)
 
-    # 2. Punchy Headline Overlay with Shadow
-    line_y = 280
+    draw.line([(pos_x + card_w + 6, pos_y - 6), (pos_x + card_w - b_len, pos_y - 6)], fill=neon, width=6)
+    draw.line([(pos_x + card_w + 6, pos_y - 6), (pos_x + card_w + 6, pos_y + b_len)], fill=neon, width=6)
+
+    draw.line([(pos_x - 6, pos_y + card_h + 6), (pos_x + b_len, pos_y + card_h + 6)], fill=neon, width=6)
+    draw.line([(pos_x - 6, pos_y + card_h + 6), (pos_x - 6, pos_y + card_h - b_len)], fill=neon, width=6)
+
+    draw.line([(pos_x + card_w + 6, pos_y + card_h + 6), (pos_x + card_w - b_len, pos_y + card_h + 6)], fill=neon, width=6)
+    draw.line([(pos_x + card_w + 6, pos_y + card_h + 6), (pos_x + card_w + 6, pos_y + card_h - b_len)], fill=neon, width=6)
+
+    # 2. Tech HUD Top Header
+    blink = int(t * 3) % 2 == 0
+    rec_col = (255, 40, 60) if blink else (140, 20, 30)
+    draw.ellipse([pos_x, 165, pos_x + 16, 181], fill=rec_col)
+    draw.text((pos_x + 26, 162), "LIVE INTEL // TECH IN 30", font=font_hud, fill=(0, 240, 255))
+    draw.text((pos_x + card_w - 180, 162), "SYS_AI // v2.6", font=font_hud, fill=(120, 160, 200))
+
+    # 3. Floating Modern Title Glass Card
+    box_y = 210
+    draw.rounded_rectangle([pos_x, box_y, pos_x + card_w, box_y + 240], radius=18, fill=(8, 14, 25), outline=(0, 180, 255), width=2)
+    
+    t_y = box_y + 28
     for line in title_lines:
-        draw.text((pos_x + 3, line_y + 3), line, font=font_title, fill=(0, 0, 0))
-        draw.text((pos_x, line_y), line, font=font_title, fill=(255, 255, 255))
-        line_y += 58
+        draw.text((pos_x + 32, t_y + 2), line, font=font_title, fill=(0, 0, 0))
+        draw.text((pos_x + 30, t_y), line, font=font_title, fill=(255, 255, 255))
+        t_y += 58
 
-    # 3. Punchy Viral Subtitles (Higher Position & Vivid Colors)
+    # 4. Viral High-Retention Subtitles (Alex Hormozi Style)
     chunk_idx = min(int(t / chunk_duration), len(chunks) - 1)
-    current_caption = chunks[chunk_idx]
+    caption_text = chunks[chunk_idx]
 
-    try:
-        bbox = draw.textbbox((0, 0), current_caption, font=font_caption)
-        text_w = bbox[2] - bbox[0]
-        text_h = bbox[3] - bbox[1]
-    except Exception:
-        text_w = len(current_caption) * 30
-        text_h = 60
+    cap_y = 1440
+    # Heavy Black Outline for maximum contrast
+    for dx, dy in [(-4, -4), (-4, 4), (4, -4), (4, 4), (-5, 0), (5, 0), (0, -5), (0, 5)]:
+        draw.text((540 + dx, cap_y + dy), caption_text, font=font_caption, fill=(0, 0, 0), anchor="mm")
+    
+    # Alternating High-Visibility Tech Colors
+    cap_fill = (255, 230, 0) if (chunk_idx % 2 == 0) else (0, 240, 255)
+    draw.text((540, cap_y), caption_text, font=font_caption, fill=cap_fill, anchor="mm")
 
-    cap_w = max(text_w + 80, 280)
-    cap_h = max(text_h + 40, 96)
-    cap_x1 = 540 - (cap_w // 2)
-    cap_x2 = 540 + (cap_w // 2)
-    cap_box_y = pos_y + fg_h + 70  # Higher up, safely above Shorts player controls
-
-    # Subtitle Pill
-    draw.rounded_rectangle([cap_x1, cap_box_y, cap_x2, cap_box_y + cap_h], radius=24, fill=(10, 15, 25), outline=(0, 255, 200), width=4)
-    draw.text((540, cap_box_y + (cap_h // 2)), current_caption, font=font_caption, fill=(255, 235, 50), anchor="mm")
-
-    # 4. Neon Progress Bar
-    bar_width = int(1080 * progress)
-    draw.rectangle([0, 1910, 1080, 1920], fill=(15, 20, 30))
-    draw.rectangle([0, 1910, bar_width, 1920], fill=(0, 240, 255))
+    # 5. Neon Glowing Retention Bar
+    bar_w = int(1080 * progress)
+    draw.rectangle([0, 1910, 1080, 1920], fill=(10, 15, 25))
+    draw.rectangle([0, 1910, bar_w, 1920], fill=(0, 240, 255))
 
     return np.array(frame)
 
 animated_video = VideoClip(make_tech_frame, duration=total_duration)
 
-# --- 9. AUDIO MIX ---
+# --- 9. AUDIO MIX (CYBER SUB IMPACT) ---
 def tech_sound_effect(t):
-    sub = 0.03 * np.sin(2 * np.pi * 65 * t)
-    click = 0.02 * np.sin(2 * np.pi * 2400 * t) * np.exp(-60 * (t % 1.0))
-    mono = sub + click
+    sub = 0.04 * np.sin(2 * np.pi * 60 * t)
+    pulse = 0.02 * np.sin(2 * np.pi * 1800 * t) * np.exp(-40 * (t % 0.8))
+    mono = sub + pulse
     return np.column_stack((mono, mono))
 
 sfx_audio = AudioClip(tech_sound_effect, duration=total_duration)
@@ -324,7 +329,7 @@ final_audio = CompositeAudioClip([voice_audio, sfx_audio]).set_duration(total_du
 animated_video = animated_video.set_audio(final_audio)
 
 # --- 10. RENDERING ---
-print("Rendering Modern Short...")
+print("Rendering Cyber Tech Short...")
 animated_video.write_videofile(
     "final_shorts.mp4",
     fps=30,
@@ -336,7 +341,7 @@ animated_video.write_videofile(
     logger=None
 )
 
-# --- 11. UPLOAD TO YOUTUBE ---
+# --- 11. YOUTUBE UPLOAD ---
 print("Uploading to YouTube...")
 creds = Credentials.from_authorized_user_file("token.json", ["https://www.googleapis.com/auth/youtube.upload"])
 youtube = build("youtube", "v3", credentials=creds)
