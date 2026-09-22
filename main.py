@@ -28,7 +28,7 @@ RSS_FEEDS = [
     "https://feeds.arstechnica.com/arstechnica/index"
 ]
 HISTORY_FILE = "last_tech_news.txt"
-DAILY_LIMIT = 4
+DAILY_LIMIT = 10
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # --- 2. CHECK HISTORY & DAILY LIMIT ---
