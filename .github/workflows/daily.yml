@@ -2,7 +2,7 @@ name: Tech In 30 Shorts Bot
 
 on:
   schedule:
-    - cron: '*/40 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 jobs:
