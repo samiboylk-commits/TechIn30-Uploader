@@ -22,11 +22,11 @@ from google.oauth2.credentials import Credentials
 
 # --- 1. CONFIGURATION ---
 RSS_FEEDS = [
-    "https://www.theverge.com/rss/index.xml",
-    "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "https://breakingdefense.com/feed/",
+    "https://www.defenseone.com/rss/all/",
+    "https://www.twz.com/feed",
     "https://feeds.arstechnica.com/arstechnica/index"
 ]
-
 HISTORY_FILE = "last_tech_news.txt"
 DAILY_LIMIT = 4
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -113,13 +113,15 @@ viral_title = None
 try:
     client = genai.Client(api_key=GEMINI_API_KEY)
     
-    prompt_script = f"""
-Write a suspenseful, fast-paced 15-20 second YouTube Shorts news script.
-Hook viewers intensely in the first sentence.
-End with a fast call-to-action: "Follow for instant daily updates!"
+prompt_script = f"""
+Write an intense, urgent, fast-paced 15-20 second YouTube Shorts military/defense tech script.
+Structure:
+- Line 1: Explosive hook about the strategic threat, weapon system, or tactical breakthrough.
+- Line 2-3: The exact specs, combat role, or strategic impact.
+- Outro: "Subscribe to Tech In 30 for daily defense breakthroughs!"
 Headline: {raw_title}
 Context: {summary}
-Output spoken words only. Word count strictly between 45 and 55 words. No labels, markdown, emojis, or sound notes.
+Output spoken words only. Word count strictly between 45 and 55 words. No sound notes, no asterisks, no emojis.
 """
     res_script = client.models.generate_content(model="gemini-2.5-flash", contents=prompt_script)
     if res_script.text:
@@ -336,13 +338,30 @@ upload_title = f"{viral_title} | Tech In 30 #Shorts"
 body = {
     "snippet": {
         "title": upload_title,
-        "description": f"{script_text}\n\nStay tuned for instant tech updates.\n#Shorts #Tech #Technology #Trending",
-        "tags": ["Shorts", "Tech", "Technology", "Trending"],
-        "categoryId": "28"
+        "description": f"{script_text}\n\nDaily high-stakes intelligence on military technology, autonomous defense systems, and futuristic warfare.\n\n#Shorts #MilitaryTech #DefenseTech #AIWarfare #FutureWeapons #TechIn30",
+        "tags": [
+            "MilitaryTech",
+            "DefenseTech",
+            "Shorts",
+            "Drones",
+            "AIWarfare",
+            "FutureWeapons",
+            "Military",
+            "Stealth",
+            "Technology"
+        ],
+        "categoryId": "28"  # 28 = Science & Technology
     },
     "status": {
         "privacyStatus": "public",
         "selfDeclaredMadeForKids": False
+    }
+}
+
+media = MediaFileUpload("final_shorts.mp4", chunksize=-1, resumable=True, mimetype="video/mp4")
+req = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+res = req.execute()
+print(f"Uploaded Successfully! Video ID: {res.get('id')}")
     }
 }
 
