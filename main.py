@@ -362,14 +362,11 @@ media = MediaFileUpload("final_shorts.mp4", chunksize=-1, resumable=True, mimety
 req = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
 res = req.execute()
 print(f"Uploaded Successfully! Video ID: {res.get('id')}")
-    }
-}
 
-media = MediaFileUpload("final_shorts.mp4", chunksize=-1, resumable=True, mimetype="video/mp4")
-req = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
-res = req.execute()
-print(f"Uploaded Successfully! Video ID: {res.get('id')}")
-
+# --- 12. LOG HISTORY ---
+with open(HISTORY_FILE, "a", encoding="utf-8") as f:
+    f.write(f"{target_id}|{today_str}\n")
+print(f"Saved {target_id} to {HISTORY_FILE}")
 # --- 12. UPDATE LOG ---
 with open(HISTORY_FILE, "a", encoding="utf-8") as f:
     f.write(f"{target_id}|{today_str}\n")
