@@ -54,3 +54,4 @@ https://arstechnica.com/cars/2026/09/teslas-big-electric-truck-faces-an-even-big
 https://arstechnica.com/health/2026/09/can-trump-ever-be-wrong-his-pick-to-lead-fda-refused-to-say/|2026-09-27
 https://arstechnica.com/tech-policy/2026/09/court-rules-trump-can-blacklist-anthropic-for-refusing-to-enable-claude-features/|2026-09-27
 https://arstechnica.com/ai/2026/09/tesla-workers-balk-at-training-optimus-humanoid-robots-as-replacements/|2026-09-27
+https://arstechnica.com/security/2026/09/google-ads-caught-delivering-convincing-scareware-ads-to-unsuspecting-users/|2026-09-27
